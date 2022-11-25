@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/leverage/static/js/main.1c1b1245.js",
+    "main.js": "/leverage/static/js/main.a01d46df.js",
     "index.html": "/leverage/index.html",
-    "main.1c1b1245.js.map": "/leverage/static/js/main.1c1b1245.js.map"
+    "main.a01d46df.js.map": "/leverage/static/js/main.a01d46df.js.map"
   },
   "entrypoints": [
-    "static/js/main.1c1b1245.js"
+    "static/js/main.a01d46df.js"
   ]
 }
