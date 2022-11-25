@@ -527,7 +527,7 @@ const pairAbi = [
         type: "bool",
       },
     ],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -1063,13 +1063,23 @@ const oracleAbi = [
 ];
 const columns = [
   {
+    code: "cash",
+    name: "池子可用资产",
+    width: 100,
+  },
+  {
     code: "cp",
     name: "池子精度误差",
-    width: 110,
+    width: 70,
   },
   {
     code: "bt",
-    name: "用户Pool本息",
+    name: "Pool本息",
+    width: 100,
+  },
+  {
+    code: "totalBorrows",
+    name: "池子总借款",
     width: 100,
   },
   // {
@@ -1092,12 +1102,12 @@ const columns = [
 ];
 
 const uniPoolAddrss = "0xcCe0dEE9FdCf791E9cD7FE3863C5aD19B8d40762";
-const oracleAddress = "0xF3Aba2A3a8355bF4ef2066Cbb0CaE0516ce72D48";
+const oracleAddress = "0x61614F4B56Ad4975A57385cA40940f1103393856";
 const baseAddress = "0x52dA0EF24d893cC2f4E1591cAB10458eB0528C5a";
 const quoteAddress = "0x4556a12E6b3cC71107a4965ec20dce3A7277da32";
-const basePoolAddress = "0x01E3De56a88B17FFaB433C1A18e0168648ae8bAa";
-const quotePoolAddress = "0xA0F03FCE074ad754F27543B47bEDb82C9518EeEA";
-const pairAddress = "0x5662014d9eC60DF6724077ab81e998702B66c2C4";
+const basePoolAddress = "0x62076180FAED2c608729ea97899e29D259E0525f";
+const quotePoolAddress = "0x1D3B42318ffa8BC3e3C6D756B50BbA6F52a8F888";
+const pairAddress = "0x9c2BeA639E315AE63b323f2c87ea5A902DD7C7b0";
 
 export default function MainPage({ accounts, setAccounts }) {
   const [mintTxid, setMintTxid] = useState("");
@@ -1107,6 +1117,8 @@ export default function MainPage({ accounts, setAccounts }) {
   const [closeTxid, setCloseTxid] = useState("");
   const [arr, setArr] = useState([]);
   const [priceData, setPriceData] = useState("");
+  const [checkStatus, setCheckStatus] = useState("");
+  const [liquidateData, setLiquidateData] = useState("");
 
   const isConnected = Boolean(accounts[0]);
 
@@ -1256,7 +1268,7 @@ export default function MainPage({ accounts, setAccounts }) {
       let token = document.getElementById("withdrawtoken").value;
       let amount = document.getElementById("withdrawamount").value;
       if (amount > 0) {
-        amount = amount * 1e18;
+        //amount = amount * 1e18;
         try {
           if (token === baseAddress) {
             const response = await basePool.withdraw(
@@ -1342,6 +1354,41 @@ export default function MainPage({ accounts, setAccounts }) {
     }
   }
 
+  async function check() {
+    if (window.ethereum && isConnected) {
+      let direction = document.getElementById("checkdirection").value;
+      let address = document.getElementById("useraddress").value;
+      try {
+        const response = await pair.checkLiquidation(address, direction);
+        console.log(response);
+        setCheckStatus(response.toString());
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
+
+  async function liquidate() {
+    if (window.ethereum && isConnected) {
+      let direction = document.getElementById("liquiditedirection").value;
+      let address = document.getElementById("traderaddress").value;
+
+      try {
+        if (direction === "1") {
+          const response = await pair.longLiquidation(address);
+          setLiquidateData(response.hash);
+        }
+
+        if (direction === "-1") {
+          const response = await pair.shortLiquidation(address);
+          setLiquidateData(response.hash);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
+
   async function updateData() {
     if (window.ethereum && isConnected) {
       console.log("update data");
@@ -1351,10 +1398,40 @@ export default function MainPage({ accounts, setAccounts }) {
       let ig = await quotePool.getMarketInterests();
       let validaBasePoolData = await basePool.validaPoolData();
       let validaQuotePoolData = await quotePool.validaPoolData();
-      let basePoolBalance = await basePool.getCurrentBalance(accounts[0]);
-      let quotePoolBalance = await quotePool.getCurrentBalance(accounts[0]);
+
+      let basePoolBalance = await basePool.accountTokens(accounts[0]);
+      let quotePoolBalance = await quotePool.accountTokens(accounts[0]);
+
+      console.log("user base: " + basePoolBalance);
+      console.log("user quote" + quotePoolBalance);
+
+      let baseTotalCurrentBorrow = await basePool.getCurrentTotalBorrows();
+      let quoteTotaCurrentlBorrow = await quotePool.getCurrentTotalBorrows();
+
+      let baseTotalSupply = await basePool.totalSupply();
+      let quoteTotalSupply = await quotePool.totalSupply();
+
+      let baseRate = await basePool.getExchangeRate();
+      let quoteRate = await quotePool.getExchangeRate();
+
+      let baseCash = await base.balanceOf(basePoolAddress);
+      let quoteCash = await quote.balanceOf(quotePoolAddress);
+
+      // console.log({
+      //   baseTotalBorrow: baseTotalBorrow.toString(),
+      //   quoteTotalBorrow: quoteTotalBorrow.toString(),
+      //   baseTotalCurrentBorrow: baseTotalCurrentBorrow.toString(),
+      //   quoteTotaCurrentlBorrow: quoteTotaCurrentlBorrow.toString(),
+      //   baseShare: baseShare.toString(),
+      //   quoteShare: quoteShare.toString(),
+      //   baseRate: baseRate.toString(),
+      //   quoteRate: quoteRate.toString(),
+      //   baseCash: baseCash.toString(),
+      //   quoteCash: quoteCash.toString(),
+      // });
 
       let price = currentPrice.toString() / 1e18;
+      console.log(price);
 
       setPriceData(1.0 / price);
 
@@ -1394,8 +1471,12 @@ export default function MainPage({ accounts, setAccounts }) {
 
       let arrData = [
         {
+          cash: "basePool:" + baseCash.toString() / 1e18,
           cp: "basePool:" + validaBasePoolData.toString() / 1e18,
-          bt: "basePool:" + basePoolBalance.toString() / 1e18,
+          bt:
+            "basePool:" +
+            (baseTotalSupply.toString() * baseRate.toString()) / 1e27 / 1e18,
+          totalBorrows: "basepool:" + baseTotalCurrentBorrow.toString() / 1e18,
           d: 1,
           le: posotionDataLong.leverage.toString(),
           m:
@@ -1411,12 +1492,18 @@ export default function MainPage({ accounts, setAccounts }) {
           p:
             posotionDataLong.base.toString() === "0"
               ? ""
-              : longPnl / 1e18 + (isLongMarinBase ? " UNI" : " USDT"),
+              : new Bignumber(longPnl).toFixed() +
+                (isLongMarinBase ? " UNI" : " USDT"),
           l: longLPrice,
         },
         {
+          cash: "quotePool:" + quoteCash.toString() / 1e18,
           cp: "quotePool:" + validaQuotePoolData.toString() / 1e18,
-          bt: "qoutePool:" + quotePoolBalance.toString() / 1e18,
+          bt:
+            "qoutePool:" +
+            (quoteTotalSupply.toString() * quoteRate.toString()) / 1e27 / 1e18,
+          totalBorrows:
+            "quotepool:" + quoteTotaCurrentlBorrow.toString() / 1e18,
           d: -1,
           le: posotionDataShort.leverage.toString(),
           m:
@@ -1432,7 +1519,8 @@ export default function MainPage({ accounts, setAccounts }) {
           p:
             posotionDataShort.quote.toString() === "0"
               ? ""
-              : shortPnl / 1e18 + (isShortMarinBase ? " UNI" : " USDT"),
+              : new Bignumber(shortPnl).toFixed() +
+                (isShortMarinBase ? " UNI" : " USDT"),
           l: shortLPrice,
         },
       ];
@@ -1450,7 +1538,7 @@ export default function MainPage({ accounts, setAccounts }) {
       <table>
         <hr></hr>
         <tr>
-          <h2>UNI/USDT交易对 UNI最新价格:{priceData}</h2>
+          <h2>Polygon test链 UNI/USDT交易对 UNI最新价格:{priceData}</h2>
         </tr>
         <hr></hr>
         <tr>mint测试币</tr>
@@ -1517,6 +1605,26 @@ export default function MainPage({ accounts, setAccounts }) {
           <input type="text" id="percent"></input>
           <button onClick={close}>close</button>
           <label>{closeTxid}</label>
+        </tr>
+        <hr></hr>
+        <tr>检查用户的仓位是否处于强平状态</tr>
+        <tr>
+          <label>direction(1或-1):</label>
+          <input type="text" id="checkdirection"></input>
+          <label>用户地址:</label>
+          <input type="text" id="useraddress"></input>
+          <button onClick={check}>check</button>
+          <label>{checkStatus}</label>
+        </tr>
+        <hr></hr>
+        <tr>强平用户的仓位</tr>
+        <tr>
+          <label>direction(1或-1):</label>
+          <input type="text" id="liquiditedirection"></input>
+          <label>用户地址:</label>
+          <input type="text" id="traderaddress"></input>
+          <button onClick={liquidate}>liquidite</button>
+          <label>{liquidateData}</label>
         </tr>
       </table>
       <BaseTable dataSource={arr} columns={columns} />

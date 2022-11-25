@@ -17,7 +17,7 @@ export default function NavBar({ accounts, setAccounts }) {
   }
   return (
     <div
-      style={{ backgroundColor: false ? "pink" : "skyblue", height: "100px" }}
+      style={{ backgroundColor: false ? "pink" : "skyblue", height: "50px" }}
     >
       {isConnected ? (
         <p>{accounts[0]}</p>
